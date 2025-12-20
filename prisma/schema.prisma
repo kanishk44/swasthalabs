@@ -1,0 +1,203 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum WebhookStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+  DEAD
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  CANCELLED
+  PAST_DUE
+  EXPIRED
+}
+
+enum PlanStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  profile       Profile?
+  intake        Intake?
+  subscriptions Subscription[]
+  payments      Payment[]
+  plans         Plan[]
+  progressLogs  ProgressLog[]
+  messages      Message[]
+  auditLogs     AuditLog[]
+}
+
+model Profile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  name      String?
+  gender    String?
+  age       Int?
+  height    Float?
+  weight    Float?
+  city      String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Intake {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  fields    Json?
+  rawJson   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Subscription {
+  id                     String             @id @default(cuid())
+  userId                 String
+  user                   User               @relation(fields: [userId], references: [id])
+  planType               String             // 3_MONTHS, 6_MONTHS, 12_MONTHS
+  razorpaySubscriptionId String             @unique
+  status                 SubscriptionStatus @default(INACTIVE)
+  startedAt              DateTime?
+  renewsAt               DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+}
+
+model Payment {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id])
+  razorpayPaymentId  String   @unique
+  amount             Int
+  status             String
+  rawJson            Json
+  createdAt          DateTime @default(now())
+}
+
+model Plan {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id])
+  status    PlanStatus    @default(ACTIVE)
+  versions  PlanVersion[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model PlanVersion {
+  id          String   @id @default(cuid())
+  planId      String
+  plan        Plan     @relation(fields: [planId], references: [id])
+  version     Int
+  jsonPlan    Json
+  pdfUrl      String?
+  releaseAt   DateTime
+  isReleased  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model ProgressLog {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  date        DateTime @default(now())
+  weight      Float?
+  waist       Float?
+  steps       Int?
+  sleepHours  Float?
+  createdAt   DateTime @default(now())
+}
+
+model FileAsset {
+  id          String       @id @default(cuid())
+  title       String
+  bucketPath  String
+  checksum    String?
+  version     Int          @default(1)
+  ingestedAt  DateTime?
+  chunks      GuideChunk[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model GuideChunk {
+  id              String                    @id @default(cuid())
+  fileAssetId     String
+  fileAsset       FileAsset                 @relation(fields: [fileAssetId], references: [id], onDelete: Cascade)
+  chunkText       String
+  chunkIndex      Int
+  chunkHash       String
+  embeddingModel  String
+  dimensions      Int
+  embedding       Unsupported("vector(768)")?
+  metadata        Json?
+  createdAt       DateTime                  @default(now())
+}
+
+model WebhookEvent {
+  id             String        @id @default(cuid())
+  event_id       String        @unique // typeform:<response_id> or razorpay:id
+  source         String        // typeform, razorpay
+  payload        Json
+  status         WebhookStatus @default(PENDING)
+  lockedAt       DateTime?
+  lockedBy       String?
+  attemptCount   Int           @default(0)
+  nextAttemptAt  DateTime      @default(now())
+  lastError      String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([status, nextAttemptAt])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  role      String   // USER, COACH
+  content   String
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actor     String
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+}
+
