@@ -1,18 +1,34 @@
 import { prisma } from "@/lib/prisma";
 import { WebhookStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+
+const MAX_JOB_LIMIT = 100;
+const MIN_JOB_LIMIT = 1;
 
 export async function claimJobs(limit: number = 5) {
+  // Validate and coerce limit to a safe integer within bounds
+  const safeLimit = Math.max(
+    MIN_JOB_LIMIT,
+    Math.min(MAX_JOB_LIMIT, Math.floor(Number(limit) || MIN_JOB_LIMIT))
+  );
+
+  if (!Number.isInteger(safeLimit) || safeLimit < MIN_JOB_LIMIT || safeLimit > MAX_JOB_LIMIT) {
+    throw new Error(`Invalid limit: must be an integer between ${MIN_JOB_LIMIT} and ${MAX_JOB_LIMIT}`);
+  }
+
   // Use SELECT ... FOR UPDATE SKIP LOCKED to atomically claim jobs
   // We use raw query because Prisma doesn't support FOR UPDATE SKIP LOCKED natively yet
   return await prisma.$transaction(async (tx) => {
-    const jobs = await tx.$queryRawUnsafe<{ id: string }[]>(`
-      SELECT id FROM "WebhookEvent"
-      WHERE status IN ('PENDING', 'FAILED')
-      AND "nextAttemptAt" <= NOW()
-      ORDER BY "nextAttemptAt" ASC
-      LIMIT ${limit}
-      FOR UPDATE SKIP LOCKED
-    `);
+    const jobs = await tx.$queryRaw<{ id: string }[]>(
+      Prisma.sql`
+        SELECT id FROM "WebhookEvent"
+        WHERE status IN ('PENDING', 'FAILED')
+        AND "nextAttemptAt" <= NOW()
+        ORDER BY "nextAttemptAt" ASC
+        LIMIT ${safeLimit}
+        FOR UPDATE SKIP LOCKED
+      `
+    );
 
     if (jobs.length === 0) return [];
 
