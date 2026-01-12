@@ -1,0 +1,201 @@
+{
+	"info": {
+		"_postman_id": "swasthalabs-testing-collection",
+		"name": "SwasthaLabs API Testing",
+		"description": "Collection for testing SwasthaLabs webhooks, cron jobs, and AI ingestion.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Webhooks",
+			"item": [
+				{
+					"name": "Typeform Intake Webhook",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Typeform-Signature",
+								"value": "sha256=MOCK_SIGNATURE",
+								"description": "Calculate this if using a secret"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"event_id\": \"test_event_123\",\n  \"form_response\": {\n    \"token\": \"test_token_123\",\n    \"hidden\": {\n      \"user_id\": \"cl_user_123\",\n      \"email\": \"test@example.com\"\n    },\n    \"answers\": [\n      {\n        \"type\": \"text\",\n        \"text\": \"Vegetarian\",\n        \"field\": { \"id\": \"diet_type\", \"type\": \"short_text\" }\n      }\n    ]\n  }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/webhooks/typeform",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"webhooks",
+								"typeform"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Razorpay Subscription Webhook",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-razorpay-signature",
+								"value": "MOCK_SIGNATURE"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id\": \"evt_test_123\",\n  \"event\": \"subscription.activated\",\n  \"payload\": {\n    \"subscription\": {\n      \"entity\": {\n        \"id\": \"sub_test_123\",\n        \"status\": \"activated\",\n        \"start_at\": 1734710400,\n        \"charge_at\": 1737388800,\n        \"notes\": {\n          \"user_id\": \"cl_user_123\"\n        }\n      }\n    }\n  }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/webhooks/razorpay",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"webhooks",
+								"razorpay"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Cron Jobs",
+			"item": [
+				{
+					"name": "Run Background Worker",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{cron_secret}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/cron/worker",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"cron",
+								"worker"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Run Release Worker",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{cron_secret}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/cron/release",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"cron",
+								"release"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Admin",
+			"item": [
+				{
+					"name": "Ingest PDF Guide",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"fileAssetId\": \"cl_file_123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/admin/ingest-guides",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"ingest-guides"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3000",
+			"type": "string"
+		},
+		{
+			"key": "cron_secret",
+			"value": "your-cron-secret",
+			"type": "string"
+		}
+	]
+}
+
