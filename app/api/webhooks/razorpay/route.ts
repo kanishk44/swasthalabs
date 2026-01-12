@@ -31,8 +31,28 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const payload = JSON.parse(body);
-  const eventId = `razorpay:${payload.id}`;
+  // Parse and validate payload
+  let payload: unknown;
+  try {
+    payload = JSON.parse(body);
+  } catch (parseError) {
+    console.error("Razorpay webhook JSON parse error:", parseError);
+    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+  }
+
+  // Validate payload structure
+  if (
+    typeof payload !== "object" ||
+    payload === null ||
+    !("id" in payload) ||
+    typeof (payload as Record<string, unknown>).id !== "string" ||
+    (payload as Record<string, unknown>).id === ""
+  ) {
+    console.error("Razorpay webhook invalid payload structure:", payload);
+    return NextResponse.json({ error: "Invalid payload: missing or invalid event id" }, { status: 400 });
+  }
+
+  const eventId = `razorpay:${(payload as { id: string }).id}`;
 
   try {
     // Idempotent write

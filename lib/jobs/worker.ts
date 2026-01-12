@@ -51,25 +51,42 @@ export async function claimJobs(limit: number = 5) {
   });
 }
 
+const MAX_ATTEMPTS = 5;
+
 export async function releaseJob(id: string, status: WebhookStatus, error?: string) {
-  const attemptCount = await prisma.webhookEvent.findUnique({
-    where: { id },
-    select: { attemptCount: true },
-  });
-
-  const nextAttempt = attemptCount && status === WebhookStatus.FAILED 
-    ? new Date(Date.now() + Math.pow(2, attemptCount.attemptCount) * 1000 * 60) // Exponential backoff
-    : new Date();
-
-  await prisma.webhookEvent.update({
-    where: { id },
-    data: {
-      status: status === WebhookStatus.FAILED && (attemptCount?.attemptCount || 0) >= 5 ? WebhookStatus.DEAD : status,
-      lastError: error,
-      attemptCount: { increment: status === WebhookStatus.FAILED ? 1 : 0 },
-      nextAttemptAt: nextAttempt,
-      lockedAt: null,
-    },
-  });
+  if (status === WebhookStatus.FAILED) {
+    // Use atomic raw SQL to increment attemptCount and determine final status in one operation
+    // This prevents race conditions and ensures DEAD is set on the 5th failure (not 6th)
+    await prisma.$queryRaw(
+      Prisma.sql`
+        UPDATE "WebhookEvent"
+        SET
+          "attemptCount" = "attemptCount" + 1,
+          "status" = CASE 
+            WHEN "attemptCount" + 1 >= ${MAX_ATTEMPTS} THEN 'DEAD'::"WebhookStatus"
+            ELSE 'FAILED'::"WebhookStatus"
+          END,
+          "lastError" = ${error ?? null},
+          "nextAttemptAt" = CASE
+            WHEN "attemptCount" + 1 >= ${MAX_ATTEMPTS} THEN NULL
+            ELSE NOW() + (POWER(2, "attemptCount" + 1) * INTERVAL '1 minute')
+          END,
+          "lockedAt" = NULL,
+          "updatedAt" = NOW()
+        WHERE id = ${id}
+      `
+    );
+  } else {
+    // For non-failure statuses (e.g., COMPLETED), use simple Prisma update
+    await prisma.webhookEvent.update({
+      where: { id },
+      data: {
+        status,
+        lastError: error ?? null,
+        nextAttemptAt: null,
+        lockedAt: null,
+      },
+    });
+  }
 }
 

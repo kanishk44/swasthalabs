@@ -22,8 +22,10 @@ export async function GET(req: NextRequest) {
   
   let isAdmin = false;
   if (!isOwnData) {
+    // Query by authUser.id (Supabase UID) which is always present
+    // This handles phone-only or null-email users safely
     const dbUser = await prisma.user.findUnique({
-      where: { email: authUser.email! },
+      where: { id: authUser.id },
       select: { role: true }
     });
     isAdmin = dbUser?.role === "ADMIN";
@@ -52,9 +54,11 @@ export async function GET(req: NextRequest) {
       hasSubscription: !!subscription,
       latestPlan: latestPlan || null,
     });
-  } catch (error: any) {
+  } catch (error) {
+    // Log full error server-side for diagnostics
     console.error("User status error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // Return generic error to client to avoid leaking internal details
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
