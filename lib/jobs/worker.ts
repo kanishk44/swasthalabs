@@ -77,7 +77,7 @@ export async function releaseJob(id: string, status: WebhookStatus, error?: stri
       `
     );
   } else {
-    // For non-failure statuses (e.g., COMPLETED), use simple Prisma update
+    // For non-failure statuses (e.g., PROCESSED), use simple Prisma update
     await prisma.webhookEvent.update({
       where: { id },
       data: {
